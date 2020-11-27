@@ -1,0 +1,4 @@
+scikit-image==0.16.2
+Shapely==1.7.0
+numpy==1.18.1
+tqdm==4.48.2
