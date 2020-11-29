@@ -102,7 +102,7 @@ class Metrics(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         images, labels = self.model.validation_data
-        preds = np.asarray(self.model.predict(images))
+        preds = np.asarray(self.model.predict_batch(images))
         ious = np.array([score_iou(pred, label) for pred, label in zip(preds, labels)])
         self.mean_iou.append(ious.mean())
         self.score.append((ious > 0.7).mean())
