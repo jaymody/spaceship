@@ -2,6 +2,7 @@
 /archive/
 /data/
 /models/
+/logs/
 _*.py
 _*.ipynb
 todo.md
