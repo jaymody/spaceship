@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
-from train import load_model, predict
 from helpers import make_data, score_iou
 
 
@@ -15,6 +14,7 @@ def evaluate(model_file):
     for _ in tqdm(range(1000)):
         img, label = make_data()
         pred = model.predict(img[None])  # batch size 1
+        pred = np.squeeze(pred)
         ious.append(score_iou(label, pred))
 
     ious = np.asarray(ious, dtype="float")
