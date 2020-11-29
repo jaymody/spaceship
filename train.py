@@ -102,7 +102,7 @@ class Metrics(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         images, labels = self.model.validation_data
-        preds = np.asarray(self.model.predict_batch(images))
+        preds = np.asarray(predict_batch(self.model, images))
         ious = np.array([score_iou(pred, label) for pred, label in zip(preds, labels)])
         self.mean_iou.append(ious.mean())
         self.score.append((ious > 0.7).mean())
@@ -111,7 +111,7 @@ class Metrics(tf.keras.callbacks.Callback):
 
 def predict(model, img):
     pred = model.predict(img[None])  # batch size 1
-    return np.asarray(denormalize_label(pred))
+    return np.asarray(denormalize_label(np.squeeze(pred)))
 
 
 def predict_batch(model, images):
@@ -138,6 +138,10 @@ def train(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir, **k
         callbacks=[tb_callback, metrics],
     )
     return model, metrics
+
+
+def load_model(filename):
+    return tf.keras.models.load_model(filename)
 
 
 if __name__ == "__main__":
