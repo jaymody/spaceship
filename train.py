@@ -68,12 +68,12 @@ def make_batch(batch_size, task="regression"):
 
 
 class Metrics(tf.keras.callbacks.Callback):
-    def on_train_begin(self, logs={}):
+    def on_train_begin(self, logs=None):
         self.mean_iou = []
         self.score = []
         self.loss = []
 
-    def on_epoch_end(self, epoch, logs={}):
+    def on_epoch_end(self, epoch, logs=None):
         images, labels = self.model.validation_data
         preds = np.asarray(self.model.predict(images))
         ious = np.array([score_iou(pred, label) for pred, label in zip(preds, labels)])
