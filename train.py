@@ -114,7 +114,7 @@ if __name__ == "__main__":
     train_metrics_file = os.path.join(args.save_dir, "metrics.png")
 
     # train
-    model, metrics = train(**args.__dict__)
+    trained_model, metrics = train(**args.__dict__)
     print()
     print("--- done training ---")
     print(f"             loss = {metrics.loss[-1]:.3f}")
@@ -127,9 +127,9 @@ if __name__ == "__main__":
     print()
 
     # save model and summary
-    model.save(model_save_file)
+    trained_model.save(model_save_file)
     with open(model_summary_file, "w") as fo:
-        model.summary(print_fn=lambda x: fo.write(x + "\n"))
+        trained_model.summary(print_fn=lambda x: fo.write(x + "\n"))
 
     # save metrics plot
     fig, ax = plt.subplots(1, 3, figsize=(32, 8))
