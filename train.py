@@ -66,8 +66,8 @@ def generate_model():
 
     model.add(Flatten())
     model.add(Dense(5))
-    model.add(Activation("sigmoid"))
-    model.add(RescaleLayer())
+    # model.add(Activation("sigmoid"))
+    # model.add(RescaleLayer())
     return model
 
 
