@@ -52,10 +52,16 @@ def generate_model():
     return model
 
 
-def make_batch(batch_size):
+def make_batch(batch_size, task="regression"):
     # this model can only train on data where a spaceship is guaranteed, this is not true when testing
     imgs, labels = zip(*[make_data(has_spaceship=True) for _ in range(batch_size)])
     imgs = [preprocess_image(img) for img in imgs]
+
+    if task == "classification":
+        labels = [0 if np.any(np.isnan(label)) else 1 for label in labels]
+    elif task == "regression":
+        labels = labels
+
     imgs = np.stack(imgs)
     labels = np.stack(labels)
     return imgs, labels
