@@ -21,10 +21,25 @@ IMAGE_SIZE = 200
 NOISE_LEVEL = 0.8
 MAX_WIDTH = 37
 MAX_HEIGHT = MAX_WIDTH * 2
+SCALE_VECTOR = [IMAGE_SIZE, IMAGE_SIZE, 2 * np.pi, MAX_WIDTH, MAX_HEIGHT]
 
 
 def preprocess_image(img):
     return np.where(img >= NOISE_LEVEL, img, 0.0)
+
+
+class RescaleLayer(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.scale_vector = None
+
+    def build(self, input_shape):
+        self.scale_vector = tf.constant(SCALE_VECTOR)
+
+    def call(self, inputs):
+        return tf.keras.backend.map_fn(
+            lambda x: tf.keras.layers.Multiply()([x, self.scale_vector]), inputs,
+        )
 
 
 def generate_model():
@@ -52,31 +67,8 @@ def generate_model():
     model.add(Flatten())
     model.add(Dense(5))
     model.add(Activation("sigmoid"))
+    model.add(RescaleLayer())
     return model
-
-
-def normalize_label(label):
-    return np.asarray(
-        [
-            label[0] / IMAGE_SIZE,
-            label[1] / IMAGE_SIZE,
-            label[2] / (2 * np.pi),
-            label[3] / MAX_WIDTH,
-            label[4] / MAX_HEIGHT,
-        ]
-    )
-
-
-def denormalize_label(label):
-    return np.asarray(
-        [
-            int(round(label[0] * IMAGE_SIZE)),
-            int(round(label[1] * IMAGE_SIZE)),
-            label[2] * 2 * np.pi,
-            int(round(label[3] * MAX_WIDTH)),
-            int(round(label[4] * MAX_HEIGHT)),
-        ]
-    )
 
 
 def make_batch(batch_size, task="regression"):
@@ -86,8 +78,8 @@ def make_batch(batch_size, task="regression"):
 
     if task == "classification":
         labels = [0 if np.any(np.isnan(label)) else 1 for label in labels]
-    elif task == "regression":
-        labels = [normalize_label(label) for label in labels]
+    elif task != "regression":
+        raise ValueError("task must be one of classification or regression")
 
     imgs = np.stack(imgs)
     labels = np.stack(labels)
@@ -102,21 +94,11 @@ class Metrics(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         images, labels = self.model.validation_data
-        preds = np.asarray(predict_batch(self.model, images))
+        preds = np.asarray(self.model.predict(images))
         ious = np.array([score_iou(pred, label) for pred, label in zip(preds, labels)])
         self.mean_iou.append(ious.mean())
         self.score.append((ious > 0.7).mean())
         self.loss.append(logs["loss"])
-
-
-def predict(model, img):
-    pred = model.predict(img[None])  # batch size 1
-    return np.asarray(denormalize_label(np.squeeze(pred)))
-
-
-def predict_batch(model, images):
-    preds = model.predict(images)
-    return np.asarray([denormalize_label(pred) for pred in preds])
 
 
 def train(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir, **kwargs):
@@ -138,10 +120,6 @@ def train(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir, **k
         callbacks=[tb_callback, metrics],
     )
     return model, metrics
-
-
-def load_model(filename):
-    return tf.keras.models.load_model(filename)
 
 
 if __name__ == "__main__":
