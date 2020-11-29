@@ -19,6 +19,8 @@ from helpers import make_data, score_iou
 
 IMAGE_SIZE = 200
 NOISE_LEVEL = 0.8
+MAX_WIDTH = 37
+MAX_HEIGHT = MAX_WIDTH * 2
 
 
 def preprocess_image(img):
@@ -49,7 +51,32 @@ def generate_model():
 
     model.add(Flatten())
     model.add(Dense(5))
+    model.add(Activation("sigmoid"))
     return model
+
+
+def normalize_label(label):
+    return np.asarray(
+        [
+            label[0] / IMAGE_SIZE,
+            label[1] / IMAGE_SIZE,
+            label[2] / (2 * np.pi),
+            label[3] / MAX_WIDTH,
+            label[4] / MAX_HEIGHT,
+        ]
+    )
+
+
+def denormalize_label(label):
+    return np.asarray(
+        [
+            int(round(label[0] * IMAGE_SIZE)),
+            int(round(label[1] * IMAGE_SIZE)),
+            label[2] * 2 * np.pi,
+            int(round(label[3] * MAX_WIDTH)),
+            int(round(label[4] * MAX_HEIGHT)),
+        ]
+    )
 
 
 def make_batch(batch_size, task="regression"):
@@ -60,7 +87,7 @@ def make_batch(batch_size, task="regression"):
     if task == "classification":
         labels = [0 if np.any(np.isnan(label)) else 1 for label in labels]
     elif task == "regression":
-        labels = labels
+        labels = [normalize_label(label) for label in labels]
 
     imgs = np.stack(imgs)
     labels = np.stack(labels)
@@ -80,6 +107,16 @@ class Metrics(tf.keras.callbacks.Callback):
         self.mean_iou.append(ious.mean())
         self.score.append((ious > 0.7).mean())
         self.loss.append(logs["loss"])
+
+
+def predict(model, img):
+    pred = model.predict(img[None])  # batch size 1
+    return np.asarray(denormalize_label(pred))
+
+
+def predict_batch(model, images):
+    preds = model.predict(images)
+    return np.asarray([denormalize_label(pred) for pred in preds])
 
 
 def train(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir, **kwargs):
