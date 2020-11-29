@@ -76,7 +76,7 @@ class Metrics(tf.keras.callbacks.Callback):
         self.loss.append(logs["loss"])
 
 
-def train(batch_size, steps_per_epoch, epochs, n_val_examples=1000, lr=0.001, **kwargs):
+def train(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir, **kwargs):
     # model
     model = generate_model()
     model.compile(loss="mse", optimizer=tf.optimizers.Adam(lr=lr))
@@ -86,12 +86,13 @@ def train(batch_size, steps_per_epoch, epochs, n_val_examples=1000, lr=0.001, **
     model.validation_data = make_batch(n_val_examples)
 
     # fit
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
     metrics = Metrics()
     model.fit(
         iter(lambda: make_batch(batch_size), None),
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
-        callbacks=[tf.keras.callbacks.TensorBoard(log_dir="logs"), metrics],
+        callbacks=[tb_callback, metrics],
     )
     return model, metrics
 
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--n_val_examples", type=int, default=1000)
     parser.add_argument("--lr", type=int, default=1e-3)
-    parser.add_argument("--save_dir", type=str, default=".")
+    parser.add_argument("--save_dir", type=str, default="models")
     args = parser.parse_args()
 
     # save locations
@@ -143,6 +144,6 @@ if __name__ == "__main__":
     plt.savefig(train_metrics_file)
 
     print("--- done ---")
-    print("    model saved to model.hdf5")
-    print("    model summary saved to model.txt")
-    print("    train metrics plot saved to train.png")
+    print(f"    model saved to {model_save_file}")
+    print(f"    model summary saved to {model_summary_file}")
+    print(f"    train metrics plot saved to {train_metrics_file}")
