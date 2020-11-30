@@ -9,7 +9,6 @@ from tensorflow.keras.layers import (
     Conv2D,
     MaxPool2D,
     BatchNormalization,
-    Activation,
     Reshape,
     Flatten,
     Dense,
@@ -19,27 +18,27 @@ from helpers import make_data, score_iou
 
 IMAGE_SIZE = 200
 NOISE_LEVEL = 0.8
-MAX_WIDTH = 37
-MAX_HEIGHT = MAX_WIDTH * 2
-SCALE_VECTOR = [IMAGE_SIZE, IMAGE_SIZE, 2 * np.pi, MAX_WIDTH, MAX_HEIGHT]
+# MAX_WIDTH = 37
+# MAX_HEIGHT = MAX_WIDTH * 2
+# SCALE_VECTOR = [IMAGE_SIZE, IMAGE_SIZE, 2 * np.pi, MAX_WIDTH, MAX_HEIGHT]
 
 
 def preprocess_image(img):
     return np.where(img >= NOISE_LEVEL, img, 0.0)
 
 
-class RescaleLayer(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.scale_vector = None
+# class RescaleLayer(tf.keras.layers.Layer):
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+#         self.scale_vector = None
 
-    def build(self, input_shape):
-        self.scale_vector = tf.constant(SCALE_VECTOR)
+#     def build(self, input_shape):
+#         self.scale_vector = tf.constant(SCALE_VECTOR)
 
-    def call(self, inputs):
-        return tf.keras.backend.map_fn(
-            lambda x: tf.keras.layers.Multiply()([x, self.scale_vector]), inputs,
-        )
+#     def call(self, inputs):
+#         return tf.keras.backend.map_fn(
+#             lambda x: tf.keras.layers.Multiply()([x, self.scale_vector]), inputs,
+#         )
 
 
 def generate_model(task):
