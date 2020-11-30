@@ -42,7 +42,7 @@ class RescaleLayer(tf.keras.layers.Layer):
         )
 
 
-def generate_model():
+def generate_model(task):
     model = Sequential()
     model.add(
         Reshape((IMAGE_SIZE, IMAGE_SIZE, 1), input_shape=(IMAGE_SIZE, IMAGE_SIZE))
@@ -70,13 +70,21 @@ def generate_model():
         model.add(MaxPool2D())
 
     model.add(Flatten())
-    model.add(Dense(5))
+    model.add(Dense(1))
+    if task == "classification":
+        model.add(Activation("sigmoid"))
+    elif task != "regression":
+        raise ValueError("task must be one of classification or regression")
     return model
 
 
-def make_batch(batch_size, task="regression"):
-    # this model can only train on data where a spaceship is guaranteed, this is not true when testing
-    imgs, labels = zip(*[make_data(has_spaceship=True) for _ in range(batch_size)])
+def make_batch(batch_size, task):
+    imgs, labels = zip(
+        *[
+            make_data(has_spaceship=i % 2 == 0 if task == "regression" else None)
+            for i in range(batch_size)
+        ]
+    )
     imgs = [preprocess_image(img) for img in imgs]
 
     if task == "classification":
@@ -104,30 +112,69 @@ class Metrics(tf.keras.callbacks.Callback):
         self.loss.append(logs["loss"])
 
 
-def train(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir, **kwargs):
+def train_clf(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir):
     # model
-    model = generate_model()
+    model = generate_model("classification")
+    model.compile(
+        loss="binary_crossentropy",
+        optimizer=tf.optimizers.Adam(lr=lr),
+        metrics="accuracy",
+    )
+    model.summary()
+
+    # fit
+    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
+    history = model.fit(
+        iter(lambda: make_batch(batch_size, "classification"), None),
+        steps_per_epoch=steps_per_epoch,
+        epochs=epochs,
+        callbacks=[tb_callback],
+    )
+    return model, history
+
+
+def train_reg(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir):
+    # model
+    model = generate_model("regression")
     model.compile(loss="mse", optimizer=tf.optimizers.Adam(lr=lr))
     model.summary()
 
     # validation data
-    model.validation_data = make_batch(n_val_examples)
+    model.validation_data = make_batch(n_val_examples, "regression")
 
     # fit
     tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
     metrics = Metrics()
-    model.fit(
-        iter(lambda: make_batch(batch_size), None),
+    history = model.fit(
+        iter(lambda: make_batch(batch_size, "regression"), None),
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
         callbacks=[tb_callback, metrics],
     )
-    return model, metrics
+
+    print()
+    print("--- done training ---")
+    print(f"             loss = {metrics.loss[-1]:.3f}")
+    print(f"         mean_iou = {metrics.mean_iou[-1]:.3f}")
+    print(f"            score = {metrics.score[-1]:.3f}")
+    print()
+    print(f"        best_loss = {min(metrics.loss):.3f}")
+    print(f"    best_mean_iou = {max(metrics.mean_iou):.3f}")
+    print(f"       best_score = {max(metrics.score):.3f}")
+    print()
+
+    # save metrics plot
+    history.history["loss"] = metrics.loss
+    history.history["mean_iou"] = metrics.mean_iou
+    history.history["score"] = metrics.score
+
+    return model, history
 
 
 if __name__ == "__main__":
     # cli
     parser = argparse.ArgumentParser("Train script to reproduce model.")
+    parser.add_argument("--task", type=str, default="regression")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--steps_per_epoch", type=int, default=250)
     parser.add_argument("--epochs", type=int, default=100)
@@ -143,34 +190,28 @@ if __name__ == "__main__":
     train_metrics_file = os.path.join(args.save_dir, "metrics.png")
 
     # train
-    trained_model, metrics = train(**args.__dict__)
-    print()
-    print("--- done training ---")
-    print(f"             loss = {metrics.loss[-1]:.3f}")
-    print(f"         mean_iou = {metrics.mean_iou[-1]:.3f}")
-    print(f"            score = {metrics.score[-1]:.3f}")
-    print()
-    print(f"        best_loss = {min(metrics.loss):.3f}")
-    print(f"    best_mean_iou = {max(metrics.mean_iou):.3f}")
-    print(f"       best_score = {max(metrics.score):.3f}")
-    print()
+    if args.task == "classification":
+        trained_model, history = train_clf(**args.__dict__)
+    elif args.task == "regression":
+        trained_model, history = train_reg(**args.__dict__)
+    else:
+        raise ValueError("task must be one of classification or regression")
 
     # save model and summary
     trained_model.save(model_save_file)
     with open(model_summary_file, "w") as fo:
         trained_model.summary(print_fn=lambda x: fo.write(x + "\n"))
 
-    # save metrics plot
-    fig, ax = plt.subplots(1, 3, figsize=(32, 8))
+    # train metrics
+    nplots = len(history.history)
     t = list(range(args.epochs))
-    ax[0].plot(t, metrics.loss)
-    ax[0].set_title(f"loss ({metrics.loss[-1]:.3f})")
-    ax[1].plot(t, metrics.mean_iou)
-    ax[1].set_title(f"mean_iou ({metrics.mean_iou[-1]:.3f})")
-    ax[2].plot(t, metrics.score)
-    ax[2].set_title(f"score ({metrics.score[-1]:.3f})")
+    fig, ax = plt.subplots(1, nplots, figsize=(nplots * 6, 8))
+    for i, (k, v) in enumerate(history.history.items()):
+        ax[i].plot(t, v)
+        ax[i].set_title(f"k ({v[-1]:.3f})")
     plt.savefig(train_metrics_file)
 
+    # done
     print("--- done ---")
     print(f"    model saved to {model_save_file}")
     print(f"    model summary saved to {model_summary_file}")
