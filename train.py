@@ -196,7 +196,7 @@ class ClassificationModel:
     def predict(self, image):
         image = preprocess_image(image)
         pred = self.model.predict(image[None])
-        pred = np.squeeze(pred)
+        pred = round(float(np.squeeze(pred)))
         return pred
 
     @classmethod
