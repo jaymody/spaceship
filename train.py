@@ -97,7 +97,7 @@ def make_batch(batch_size, task):
     return imgs, labels
 
 
-class Metrics(tf.keras.callbacks.Callback):
+class BBRMetrics(tf.keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         self.mean_iou = []
         self.score = []
@@ -112,77 +112,100 @@ class Metrics(tf.keras.callbacks.Callback):
         self.loss.append(logs["loss"])
 
 
-def train_clf(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir):
-    # model
-    model = generate_model("classification")
-    model.compile(
-        loss="binary_crossentropy",
-        optimizer=tf.optimizers.Adam(lr=lr),
-        metrics="accuracy",
-    )
-    model.summary()
+class BBRModel:
+    def __init__(self, model=None):
+        self.task = "regression"
+        self.model = model
 
-    # fit
-    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
-    history = model.fit(
-        iter(lambda: make_batch(batch_size, "classification"), None),
-        steps_per_epoch=steps_per_epoch,
-        epochs=epochs,
-        callbacks=[tb_callback],
-    )
-    return model, history
+    def train(self, batch_size, lr, steps_per_epoch, epochs, n_val_examples, log_dir):
+        # model
+        model = generate_model(self.task)
+        model.compile(loss="mse", optimizer=tf.optimizers.Adam(lr=lr))
+        model.summary()
 
+        # validation data
+        model.validation_data = make_batch(n_val_examples, self.task)
 
-def train_reg(batch_size, steps_per_epoch, epochs, n_val_examples, lr, save_dir):
-    # model
-    model = generate_model("regression")
-    model.compile(loss="mse", optimizer=tf.optimizers.Adam(lr=lr))
-    model.summary()
+        # fit
+        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
+        metrics = BBRMetrics()
+        history = model.fit(
+            iter(lambda: make_batch(batch_size, self.task), None),
+            steps_per_epoch=steps_per_epoch,
+            epochs=epochs,
+            callbacks=[tb_callback, metrics],
+        )
 
-    # validation data
-    model.validation_data = make_batch(n_val_examples, "regression")
+        print()
+        print("--- done training ---")
+        print(f"             loss = {metrics.loss[-1]:.3f}")
+        print(f"         mean_iou = {metrics.mean_iou[-1]:.3f}")
+        print(f"            score = {metrics.score[-1]:.3f}")
+        print()
+        print(f"        best_loss = {min(metrics.loss):.3f}")
+        print(f"    best_mean_iou = {max(metrics.mean_iou):.3f}")
+        print(f"       best_score = {max(metrics.score):.3f}")
+        print()
 
-    # fit
-    tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
-    metrics = Metrics()
-    history = model.fit(
-        iter(lambda: make_batch(batch_size, "regression"), None),
-        steps_per_epoch=steps_per_epoch,
-        epochs=epochs,
-        callbacks=[tb_callback, metrics],
-    )
+        # save metrics plot
+        history.history["loss"] = metrics.loss
+        history.history["mean_iou"] = metrics.mean_iou
+        history.history["score"] = metrics.score
 
-    print()
-    print("--- done training ---")
-    print(f"             loss = {metrics.loss[-1]:.3f}")
-    print(f"         mean_iou = {metrics.mean_iou[-1]:.3f}")
-    print(f"            score = {metrics.score[-1]:.3f}")
-    print()
-    print(f"        best_loss = {min(metrics.loss):.3f}")
-    print(f"    best_mean_iou = {max(metrics.mean_iou):.3f}")
-    print(f"       best_score = {max(metrics.score):.3f}")
-    print()
+        self.model = model
+        return history
 
-    # save metrics plot
-    history.history["loss"] = metrics.loss
-    history.history["mean_iou"] = metrics.mean_iou
-    history.history["score"] = metrics.score
+    def predict(self, image):
+        image = preprocess_image(image)
+        pred = self.model.predict(image[None])
+        pred = np.squeeze(pred)
+        return pred
 
-    return model, history
+    @classmethod
+    def load_model(cls, filename):
+        model = tf.keras.models.load_model(filename)
+        return cls(model)
 
 
-if __name__ == "__main__":
-    # cli
-    parser = argparse.ArgumentParser("Train script to reproduce model.")
-    parser.add_argument("--task", type=str, default="regression")
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--steps_per_epoch", type=int, default=250)
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--n_val_examples", type=int, default=1000)
-    parser.add_argument("--lr", type=int, default=1e-3)
-    parser.add_argument("--save_dir", type=str, default="models")
-    args = parser.parse_args()
+class ClassificationModel:
+    def __init__(self, model=None):
+        self.task = "classification"
+        self.model = model
 
+    def train(self, batch_size, lr, steps_per_epoch, epochs, log_dir):
+        # model
+        model = generate_model(self.task)
+        model.compile(
+            loss="binary_crossentropy",
+            optimizer=tf.optimizers.Adam(lr=lr),
+            metrics="accuracy",
+        )
+        model.summary()
+
+        # fit
+        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
+        history = model.fit(
+            iter(lambda: make_batch(batch_size, self.task), None),
+            steps_per_epoch=steps_per_epoch,
+            epochs=epochs,
+            callbacks=[tb_callback],
+        )
+        self.model = model
+        return history
+
+    def predict(self, image):
+        image = preprocess_image(image)
+        pred = self.model.predict(image[None])
+        pred = np.squeeze(pred)
+        return pred
+
+    @classmethod
+    def load_model(cls, filename):
+        model = tf.keras.models.load_model(filename)
+        return cls(model)
+
+
+def train(model, args):
     # save locations
     os.makedirs(args.save_dir, exist_ok=True)
     model_save_file = os.path.join(args.save_dir, "model.hdf5")
@@ -190,22 +213,17 @@ if __name__ == "__main__":
     train_metrics_file = os.path.join(args.save_dir, "metrics.png")
 
     # train
-    if args.task == "classification":
-        trained_model, history = train_clf(**args.__dict__)
-    elif args.task == "regression":
-        trained_model, history = train_reg(**args.__dict__)
-    else:
-        raise ValueError("task must be one of classification or regression")
+    history = model.train(**args.__dict__)
 
     # save model and summary
-    trained_model.save(model_save_file)
+    model.model.save(model_save_file)
     with open(model_summary_file, "w") as fo:
-        trained_model.summary(print_fn=lambda x: fo.write(x + "\n"))
+        model.model.summary(print_fn=lambda x: fo.write(x + "\n"))
 
     # train metrics
     nplots = len(history.history)
     t = list(range(args.epochs))
-    fig, ax = plt.subplots(1, nplots, figsize=(nplots * 6, 8))
+    _, ax = plt.subplots(1, nplots, figsize=(nplots * 6, 8))
     for i, (k, v) in enumerate(history.history.items()):
         ax[i].plot(t, v)
         ax[i].set_title(f"k ({v[-1]:.3f})")
@@ -216,3 +234,60 @@ if __name__ == "__main__":
     print(f"    model saved to {model_save_file}")
     print(f"    model summary saved to {model_summary_file}")
     print(f"    train metrics plot saved to {train_metrics_file}")
+
+    # save
+    os.makedirs(args.save_dir, exist_ok=True)
+    model_save_file = os.path.join(args.save_dir, "model.hdf5")
+    model_summary_file = os.path.join(args.save_dir, "summary.txt")
+    train_metrics_file = os.path.join(args.save_dir, "metrics.png")
+
+
+if __name__ == "__main__":
+    # cli
+    parser = argparse.ArgumentParser("Train script to reproduce model.")
+    parser.add_argument(
+        "--task",
+        type=str,
+        default="all",
+        help=(
+            "Task type, either classification, regression, or all. classification "
+            "will train a binary model that predicts if a spaceship exists in "
+            "an image. Regression predicts a bounding box of the spaceship in "
+            "an image. all will train both models."
+        ),
+    )
+    parser.add_argument("--batch_size", type=int, default=32, help="Train batch size.")
+    parser.add_argument(
+        "--steps_per_epoch",
+        type=int,
+        default=250,
+        help="Number of training steps (batches) per epoch",
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=100, help="Number of training epochs."
+    )
+    parser.add_argument(
+        "--n_val_examples",
+        type=int,
+        default=1000,
+        help="Number of examples to evaluate at every epoch. Only applicable to regression",
+    )
+    parser.add_argument("--lr", type=int, default=1e-3, help="Learning rate.")
+    parser.add_argument(
+        "--save_dir",
+        type=str,
+        default="models",
+        help="Save directory for model, metrics, summary, and tensorboard logs.",
+    )
+    args = parser.parse_args()
+
+    if args.task == "all":
+        train(BBRModel(), args)
+        train(ClassificationModel(), args)
+    elif args.task == "classification":
+        train(BBRModel(), args)
+    elif args.task == "regression":
+        train(ClassificationModel(), args)
+    else:
+        raise ValueError("task must be one of classification, regression, or all")
+
