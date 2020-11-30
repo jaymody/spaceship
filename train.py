@@ -81,9 +81,11 @@ def generate_model(task):
 
 
 def make_batch(batch_size, task):
+    # uses 50/50 split (i%2==0) if in classification mode, otherwise we'll use
+    # always create a spaceship for the regression task
     imgs, labels = zip(
         *[
-            make_data(has_spaceship=i % 2 == 0 if task == "regression" else None)
+            make_data(has_spaceship=i % 2 == 0 if task == "classifiction" else True)
             for i in range(batch_size)
         ]
     )
