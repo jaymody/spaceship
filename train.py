@@ -58,16 +58,19 @@ def generate_model():
         (512, 3),
     ]:
         model.add(
-            Conv2D(nfilters, kernel_size=kernel_size, use_bias=False, padding="same")
+            Conv2D(
+                nfilters,
+                kernel_size=kernel_size,
+                use_bias=False,
+                padding="same",
+                activation="relu",
+            )
         )
         model.add(BatchNormalization())
-        model.add(Activation("relu"))
         model.add(MaxPool2D())
 
     model.add(Flatten())
     model.add(Dense(5))
-    # model.add(Activation("sigmoid"))
-    # model.add(RescaleLayer())
     return model
 
 
