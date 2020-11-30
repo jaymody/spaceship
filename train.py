@@ -70,11 +70,14 @@ def generate_model(task):
         model.add(MaxPool2D())
 
     model.add(Flatten())
-    model.add(Dense(1))
+
     if task == "classification":
-        model.add(Activation("sigmoid"))
-    elif task != "regression":
+        model.add(Dense(1, activation="sigmoid"))
+    elif task == "regression":
+        model.add(Dense(5))
+    else:
         raise ValueError("task must be one of classification or regression")
+
     return model
 
 
