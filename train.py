@@ -119,7 +119,16 @@ class BBRModel:
         self.task = "regression"
         self.model = model
 
-    def train(self, batch_size, lr, steps_per_epoch, epochs, n_val_examples, log_dir):
+    def train(
+        self,
+        batch_size,
+        lr,
+        steps_per_epoch,
+        epochs,
+        n_val_examples,
+        save_dir,
+        **kwargs,
+    ):
         # model
         model = generate_model(self.task)
         model.compile(loss="mse", optimizer=tf.optimizers.Adam(lr=lr))
@@ -129,7 +138,7 @@ class BBRModel:
         model.validation_data = make_batch(n_val_examples, self.task)
 
         # fit
-        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
+        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
         metrics = BBRMetrics()
         history = model.fit(
             iter(lambda: make_batch(batch_size, self.task), None),
@@ -174,7 +183,7 @@ class ClassificationModel:
         self.task = "classification"
         self.model = model
 
-    def train(self, batch_size, lr, steps_per_epoch, epochs, log_dir):
+    def train(self, batch_size, lr, steps_per_epoch, epochs, save_dir, **kwargs):
         # model
         model = generate_model(self.task)
         model.compile(
@@ -185,7 +194,7 @@ class ClassificationModel:
         model.summary()
 
         # fit
-        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
+        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
         history = model.fit(
             iter(lambda: make_batch(batch_size, self.task), None),
             steps_per_epoch=steps_per_epoch,
