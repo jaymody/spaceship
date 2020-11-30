@@ -218,6 +218,19 @@ class ClassificationModel:
         return cls(model)
 
 
+class CombinedModel:
+    def __init__(self, clf_model, reg_model):
+        self.clf_model = clf_model
+        self.reg_model = reg_model
+
+    def predict(self, image):
+        image = preprocess_image(image)
+        if self.clf_model.predict(image) == 1:
+            return self.reg_model.predict(image)
+        else:
+            return np.full(5, np.nan)
+
+
 def train(model, args):
     # save locations
     os.makedirs(args.save_dir, exist_ok=True)
