@@ -85,7 +85,7 @@ def make_batch(batch_size, task):
     # always create a spaceship for the regression task
     imgs, labels = zip(
         *[
-            make_data(has_spaceship=i % 2 == 0 if task == "classifiction" else True)
+            make_data(has_spaceship=i % 2 == 0 if task == "classification" else True)
             for i in range(batch_size)
         ]
     )
