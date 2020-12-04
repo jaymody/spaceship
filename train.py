@@ -48,6 +48,13 @@ def generate_model(task):
         Reshape((IMAGE_SIZE, IMAGE_SIZE, 1), input_shape=(IMAGE_SIZE, IMAGE_SIZE))
     )
 
+    # 200
+    # 100
+    # 50
+    # 25
+    # 12
+    # 6
+    # 3
     for nfilters, kernel_size in [
         (8, 11),
         (16, 9),
@@ -269,7 +276,7 @@ def train(model, args):
     _, ax = plt.subplots(1, nplots, figsize=(nplots * 6, 8))
     for i, (k, v) in enumerate(history.history.items()):
         ax[i].plot(t, v)
-        ax[i].set_title(f"k ({v[-1]:.3f})")
+        ax[i].set_title(f"{k} ({v[-1]:.3f})")
         for epoch, val in enumerate(v):
             tb_writer.add_scalar(k, val, epoch * args.batch_size * args.steps_per_epoch)
     plt.savefig(train_metrics_file)
