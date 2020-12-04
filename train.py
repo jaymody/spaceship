@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from tensorboardX import SummaryWriter
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (
     Conv2D,
@@ -111,8 +112,17 @@ class BBRMetrics(tf.keras.callbacks.Callback):
         images, labels = self.model.validation_data
         preds = np.asarray(self.model.predict(images))
         ious = np.array([score_iou(pred, label) for pred, label in zip(preds, labels)])
-        self.mean_iou.append(ious.mean())
-        self.score.append((ious > 0.7).mean())
+
+        mean_iou = ious.mean()
+        score = (ious > 0.7).mean()
+
+        print(f" -- mean_iou: {mean_iou:.3f} -- score: {score:.3f}")
+        if self.score and score > max(self.score):
+            self.model.save(self.model.best_model_path)
+            print(f"\n\tnew best model save to {self.model.best_model_path}\n")
+
+        self.mean_iou.append(mean_iou)
+        self.score.append(score)
         self.loss.append(logs["loss"])
 
 
@@ -138,15 +148,15 @@ class BBRModel:
 
         # validation data
         model.validation_data = make_batch(n_val_examples, self.task)
+        model.best_model_path = os.path.join(save_dir, "best_model.hdf5")
 
         # fit
-        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
         metrics = BBRMetrics()
         history = model.fit(
             iter(lambda: make_batch(batch_size, self.task), None),
             steps_per_epoch=steps_per_epoch,
             epochs=epochs,
-            callbacks=[tb_callback, metrics],
+            callbacks=[metrics],
         )
 
         print()
@@ -196,12 +206,18 @@ class ClassificationModel:
         model.summary()
 
         # fit
-        tb_callback = tf.keras.callbacks.TensorBoard(log_dir=save_dir)
+        best_model_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(save_dir, "best_model.hdf5"),
+            save_weights_only=False,
+            monitor="accuracy",
+            mode="max",
+            save_best_only=True,
+        )
         history = model.fit(
             iter(lambda: make_batch(batch_size, self.task), None),
             steps_per_epoch=steps_per_epoch,
             epochs=epochs,
-            callbacks=[tb_callback],
+            callbacks=[best_model_callback],
         )
         self.model = model
         return history
@@ -247,13 +263,17 @@ def train(model, args):
         model.model.summary(print_fn=lambda x: fo.write(x + "\n"))
 
     # train metrics
+    tb_writer = SummaryWriter(log_dir=args.save_dir)
     nplots = len(history.history)
     t = list(range(args.epochs))
     _, ax = plt.subplots(1, nplots, figsize=(nplots * 6, 8))
     for i, (k, v) in enumerate(history.history.items()):
         ax[i].plot(t, v)
         ax[i].set_title(f"k ({v[-1]:.3f})")
+        for epoch, val in enumerate(v):
+            tb_writer.add_scalar(k, val, epoch * args.batch_size * args.steps_per_epoch)
     plt.savefig(train_metrics_file)
+    tb_writer.close()
 
     # done
     print("--- done ---")
