@@ -19,27 +19,13 @@ from helpers import make_data, score_iou
 
 IMAGE_SIZE = 200
 NOISE_LEVEL = 0.8
-# MAX_WIDTH = 37
-# MAX_HEIGHT = MAX_WIDTH * 2
-# SCALE_VECTOR = [IMAGE_SIZE, IMAGE_SIZE, 2 * np.pi, MAX_WIDTH, MAX_HEIGHT]
+MAX_WIDTH = 37
+MAX_HEIGHT = MAX_WIDTH * 2
+SCALE_VECTOR = [IMAGE_SIZE, IMAGE_SIZE, 2 * np.pi, MAX_WIDTH, MAX_HEIGHT]
 
 
 def preprocess_image(img):
     return np.where(img >= NOISE_LEVEL, img, 0.0)
-
-
-# class RescaleLayer(tf.keras.layers.Layer):
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#         self.scale_vector = None
-
-#     def build(self, input_shape):
-#         self.scale_vector = tf.constant(SCALE_VECTOR)
-
-#     def call(self, inputs):
-#         return tf.keras.backend.map_fn(
-#             lambda x: tf.keras.layers.Multiply()([x, self.scale_vector]), inputs,
-#         )
 
 
 def generate_model(task):
@@ -68,7 +54,7 @@ def generate_model(task):
             Conv2D(
                 nfilters,
                 kernel_size=kernel_size,
-                use_bias=False,
+                use_bias=True,
                 padding="same",
                 activation="relu",
             )
@@ -81,7 +67,7 @@ def generate_model(task):
     if task == "classification":
         model.add(Dense(1, activation="sigmoid"))
     elif task == "regression":
-        model.add(Dense(5))
+        model.add(Dense(5, activation="sigmoid"))
     else:
         raise ValueError("task must be one of classification or regression")
 
@@ -101,7 +87,9 @@ def make_batch(batch_size, task):
 
     if task == "classification":
         labels = [0 if np.any(np.isnan(label)) else 1 for label in labels]
-    elif task != "regression":
+    elif task == "regression":
+        labels = [label / SCALE_VECTOR for label in labels]  # normalize labels
+    else:
         raise ValueError("task must be one of classification or regression")
 
     imgs = np.stack(imgs)
@@ -118,6 +106,7 @@ class BBRMetrics(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         images, labels = self.model.validation_data
         preds = np.asarray(self.model.predict(images))
+        preds = [pred * SCALE_VECTOR for pred in preds]  # denormalize preds
         ious = np.array([score_iou(pred, label) for pred, label in zip(preds, labels)])
 
         mean_iou = ious.mean()
@@ -154,7 +143,9 @@ class BBRModel:
         model.summary()
 
         # validation data
-        model.validation_data = make_batch(n_val_examples, self.task)
+        val_images, val_labels = make_batch(n_val_examples, self.task)
+        val_labels = [val_label * SCALE_VECTOR for val_label in val_labels]
+        model.validation_data = (val_images, val_labels)
         model.best_model_path = os.path.join(save_dir, "best_model.hdf5")
 
         # fit
@@ -189,6 +180,7 @@ class BBRModel:
         image = preprocess_image(image)
         pred = self.model.predict(image[None])
         pred = np.squeeze(pred)
+        pred *= SCALE_VECTOR  # denormalize predictions
         return pred
 
     @classmethod
