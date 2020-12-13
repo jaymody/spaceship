@@ -177,11 +177,14 @@ class BBRModel:
         return history
 
     def predict(self, image):
-        image = preprocess_image(image)
-        pred = self.model.predict(image[None])
+        pred = self.predict_batch(image[None], batch_size=1)
         pred = np.squeeze(pred)
-        pred *= SCALE_VECTOR  # denormalize predictions
         return pred
+
+    def predict_batch(self, images, batch_size=32):
+        preds = self.model.predict(images, batch_size=batch_size, verbose=1)
+        preds = [pred * SCALE_VECTOR for pred in preds]  # denormalize
+        return preds
 
     @classmethod
     def load_model(cls, filename):
@@ -222,10 +225,14 @@ class ClassificationModel:
         return history
 
     def predict(self, image):
-        image = preprocess_image(image)
-        pred = self.model.predict(image[None])
-        pred = round(float(np.squeeze(pred)))
+        pred = self.predict_batch(image[None], batch_size=1)
+        pred = np.squeeze(pred)
         return pred
+
+    def predict_batch(self, images, batch_size=32):
+        preds = self.model.predict(images, batch_size=batch_size, verbose=1)
+        preds = [round(float(pred)) for pred in preds]
+        return preds
 
     @classmethod
     def load_model(cls, filename):
@@ -238,12 +245,23 @@ class CombinedModel:
         self.clf_model = clf_model
         self.reg_model = reg_model
 
+    def predict_batch(self, images, batch_size=32):
+        clf_preds = self.clf_model.predict_batch(images, batch_size=batch_size)
+        reg_preds = self.reg_model.predict_batch(images, batch_size=batch_size)
+
+        preds = []
+        for clf_pred, reg_pred in zip(clf_preds, reg_preds):
+            if clf_pred == 1:
+                preds.append(reg_pred)
+            else:
+                preds.append(np.full(5, np.nan))
+
+        return preds, clf_preds, reg_preds
+
     def predict(self, image):
-        image = preprocess_image(image)
-        if self.clf_model.predict(image) == 1:
-            return self.reg_model.predict(image)
-        else:
-            return np.full(5, np.nan)
+        pred = self.predict_batch(image[None], batch_size=1)
+        pred = np.squeeze(pred)
+        return pred
 
 
 def train(model, args):
