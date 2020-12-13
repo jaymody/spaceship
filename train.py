@@ -347,9 +347,9 @@ if __name__ == "__main__":
     if args.task == "all":
         train(BBRModel(), args)
         train(ClassificationModel(), args)
-    elif args.task == "classification":
-        train(BBRModel(), args)
     elif args.task == "regression":
+        train(BBRModel(), args)
+    elif args.task == "classification":
         train(ClassificationModel(), args)
     else:
         raise ValueError("task must be one of classification, regression, or all")
