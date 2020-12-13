@@ -30,10 +30,10 @@ def preprocess_image(img):
 
 def generate_model(task):
     if task == "classification":
-        conv_params = [(8, 11), (16, 9), (32, 7), (64, 5), (128, 3), (256, 3), (512, 3)]
+        conv_params = [(8, 11), (16, 9), (32, 7), (64, 5), (128, 3)]
         output_dim = 1
     elif task == "regression":
-        conv_params = [(8, 11), (16, 9), (32, 7), (64, 5), (128, 3)]
+        conv_params = [(8, 11), (16, 9), (32, 7), (64, 5), (128, 3), (256, 3), (512, 3)]
         output_dim = 5
     else:
         raise ValueError("task must be one of classification or regression")
