@@ -31,7 +31,7 @@ if __name__ == "__main__":
         "--clf_model_file", type=str, default="models/clf/best_model.hdf5"
     )
     parser.add_argument(
-        "--reg_model_file", type=str, default="models/clf/best_model.hdf5"
+        "--reg_model_file", type=str, default="models/reg/best_model.hdf5"
     )
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_samples", type=int, default=1000)
