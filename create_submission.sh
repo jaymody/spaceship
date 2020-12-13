@@ -5,6 +5,7 @@ mkdir -p submission/models/clf
 mkdir -p submission/models/reg
 
 cp *.py submission
+cp requirements.txt submission/requirements.txt
 cp README.md submission
 
 cp models/clf/best_model.hdf5 submission/models/clf/best_model.hdf5
