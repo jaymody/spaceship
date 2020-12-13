@@ -29,27 +29,21 @@ def preprocess_image(img):
 
 
 def generate_model(task):
+    if task == "classification":
+        conv_params = [(8, 11), (16, 9), (32, 7), (64, 5), (128, 3), (256, 3), (512, 3)]
+        output_dim = 1
+    elif task == "regression":
+        conv_params = [(8, 11), (16, 9), (32, 7), (64, 5), (128, 3)]
+        output_dim = 5
+    else:
+        raise ValueError("task must be one of classification or regression")
+
     model = Sequential()
     model.add(
         Reshape((IMAGE_SIZE, IMAGE_SIZE, 1), input_shape=(IMAGE_SIZE, IMAGE_SIZE))
     )
 
-    # 200
-    # 100
-    # 50
-    # 25
-    # 12
-    # 6
-    # 3
-    for nfilters, kernel_size in [
-        (8, 11),
-        (16, 9),
-        (32, 7),
-        (64, 5),
-        (128, 3),
-        (256, 3),
-        (512, 3),
-    ]:
+    for nfilters, kernel_size in conv_params:
         model.add(
             Conv2D(
                 nfilters,
@@ -63,14 +57,7 @@ def generate_model(task):
         model.add(MaxPool2D())
 
     model.add(Flatten())
-
-    if task == "classification":
-        model.add(Dense(1, activation="sigmoid"))
-    elif task == "regression":
-        model.add(Dense(5, activation="sigmoid"))
-    else:
-        raise ValueError("task must be one of classification or regression")
-
+    model.add(Dense(output_dim, activation="sigmoid"))
     return model
 
 
@@ -313,10 +300,10 @@ if __name__ == "__main__":
         type=str,
         default="all",
         help=(
-            "Task type, either classification, regression, or all. classification "
-            "will train a binary model that predicts if a spaceship exists in "
-            "an image. Regression predicts a bounding box of the spaceship in "
-            "an image. all will train both models."
+            "Task type, either classification, regression, or all. The default "
+            '"all" option will train both the classification and regression models '
+            "with the hyperparameters used in the submission as to reproduce reported "
+            "model results (other arguments will be ignored in this case)."
         ),
     )
     parser.add_argument("--batch_size", type=int, default=32, help="Train batch size.")
@@ -345,7 +332,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.task == "all":
+        args.task = "regression"
+        args.save_dir = "reproduced_models/reg"
+        args.batch_size = 8
+        args.steps_per_epoch = 1000
+        args.epochs = 200
+        args.n_val_examples = 2048
+        args.lr = 1e-3
         train(BBRModel(), args)
+
+        args.task = "classification"
+        args.save_dir = "reproduced_models/clf"
+        args.batch_size = 8
+        args.steps_per_epoch = 1000
+        args.epochs = 60
+        args.n_val_examples = 2048
+        args.lr = 1e-3
         train(ClassificationModel(), args)
     elif args.task == "regression":
         train(BBRModel(), args)
@@ -353,4 +355,3 @@ if __name__ == "__main__":
         train(ClassificationModel(), args)
     else:
         raise ValueError("task must be one of classification, regression, or all")
-
