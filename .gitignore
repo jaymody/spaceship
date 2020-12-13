@@ -2,6 +2,8 @@
 /archive/
 /data/
 /models/
+/experiments/
+/submission/
 /logs/
 _*.py
 _*.ipynb
