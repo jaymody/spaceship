@@ -1,5 +1,5 @@
 # Problem
-The goal is to build a deep learning model that can detect a hidden spaceship inside a noisy image. The model will take a single channel image as input and predict the rotated bounding box of the spaceship (if it exists). The bounding box can be used describing five parameters:
+The goal is to build a deep learning model that can detect a hidden spaceship inside a noisy image. The model will take a single channel image as input and predict the rotated bounding box of the spaceship (if it exists). The bounding box can be described using five parameters:
 - X and Y position (centre of the bounding box)
 - Yaw (direction of heading)
 - Width (size tangential to the direction of yaw)
@@ -209,7 +209,7 @@ I also decided to use a large kernel size for the first couple of convolutional 
 
 Another key choice was the decision to preprocess the images. The preprocessing step removed much of the noise, which helped the model converge faster (or converge at all in some cases).
 
-Probably the most important choice was the decision to normalize the regression labels, which was especially important for the model to learn the yaw of the spaceship. Without normalization, the error function would give more importance to the x and y label as compared to the yaw label since `150 - 100` will give a much higher error than `3.00 - 1.50`, even though both of those predictions are equally wrong by ~25%.).
+Probably the most important choice was the decision to normalize the regression labels, which was especially important for the model to learn the yaw of the spaceship. Without normalization, the error function would give more importance to the x and y label as compared to the yaw label since `150 - 100` will give a much higher error than `3.00 - 1.50`, even though both of those predictions are wrong by the same margin).
 
 ## Training
 The models were optimized using the `Adam` algorithm with an initial learning rate of `1e-3`. Each model saw about a million or so examples in the training process.

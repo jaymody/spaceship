@@ -7,6 +7,7 @@
 /logs/
 _*.py
 _*.ipynb
+*.zip
 todo.md
 
 
