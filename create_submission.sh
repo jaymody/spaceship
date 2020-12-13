@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 mkdir -p submission/examples
 mkdir -p submission/models/clf
@@ -19,5 +19,7 @@ echo -e "Classification Model\n--------------------" > submission/summary.txt
 cat models/clf/summary.txt >> submission/summary.txt
 echo -e "\n\n\n\nRegression Model\n----------------" >> submission/summary.txt
 cat models/reg/summary.txt >> submission/summary.txt
+
+((tail -n1) <<(python main.py)) > submission/score.txt
 
 zip -vr Jay_Mody_CV_Take_Home.zip submission/ -x "*.DS_Store"

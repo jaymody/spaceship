@@ -1,6 +1,5 @@
 # Problem
 The goal is to build a deep learning model that can detect a hidden spaceship inside a noisy image. The model will take a single channel image as input and predict the rotated bounding box of the spaceship (if it exists). The bounding box can be used describing five parameters:
-
 - X and Y position (centre of the bounding box)
 - Yaw (direction of heading)
 - Width (size tangential to the direction of yaw)
@@ -236,10 +235,9 @@ The final evaluation score can be reproduced using the `main.py` script.
 python main.py
 ```
 
-**Score:** 0.457
+**Score:** 0.46879
 
-**Mean IoU:** 0.650
-
+**Mean IoU:** 0.66012
 
 **IoU Distribution:**
 
