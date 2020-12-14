@@ -13,7 +13,7 @@ cp models/clf/summary.txt submission/models/clf/summary.txt
 cp models/reg/best_model.hdf5 submission/models/reg/best_model.hdf5
 cp models/reg/summary.txt submission/models/reg/summary.txt
 
-cp -r examples submission/examples
+cp -r examples submission
 
 echo -e "Classification Model\n--------------------" > submission/summary.txt
 cat models/clf/summary.txt >> submission/summary.txt
