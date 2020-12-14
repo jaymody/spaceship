@@ -4,6 +4,8 @@
 /models/
 /experiments/
 /submission/
+/lightning_logs/
+/reproduced_models/
 /logs/
 _*.py
 _*.ipynb
